@@ -1,0 +1,86 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EmailService = void 0;
+exports.createEmailService = createEmailService;
+const resend_1 = require("resend");
+class EmailService {
+    constructor(config) {
+        this.resend = null;
+        this.fromAddress = config.fromAddress;
+        this.fromName = config.fromName || 'Your App';
+        if (config.resendApiKey) {
+            this.resend = new resend_1.Resend(config.resendApiKey);
+        }
+    }
+    isConfigured() {
+        return this.resend !== null && !!this.fromAddress;
+    }
+    async sendOTP(to, otp) {
+        if (!this.resend) {
+            throw new Error('Email service is not configured. Set RESEND_API_KEY, EMAIL_FROM_ADDRESS in your .env file.');
+        }
+        const { error } = await this.resend.emails.send({
+            from: `${this.fromName} <${this.fromAddress}>`,
+            to,
+            subject: 'Your password reset code',
+            html: `
+        <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
+          <h2>Password Reset</h2>
+          <p>You requested a password reset. Use the following code to reset your password:</p>
+          <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #333;">${otp}</p>
+          <p style="color: #666;">This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.</p>
+        </div>
+      `
+        });
+        if (error) {
+            throw new Error(`Failed to send email: ${error.message}`);
+        }
+    }
+    async sendEmailVerificationOTP(to, otp) {
+        if (!this.resend) {
+            throw new Error('Email service is not configured. Set RESEND_API_KEY, EMAIL_FROM_ADDRESS in your .env file.');
+        }
+        const { error } = await this.resend.emails.send({
+            from: `${this.fromName} <${this.fromAddress}>`,
+            to,
+            subject: 'Verify your email',
+            html: `
+        <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
+          <h2>Verify your email</h2>
+          <p>Thanks for signing up. Enter this code to verify your email and continue:</p>
+          <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #333;">${otp}</p>
+          <p style="color: #666;">This code expires in 10 minutes. If you didn't create an account, you can ignore this email.</p>
+        </div>
+      `
+        });
+        if (error) {
+            throw new Error(`Failed to send email: ${error.message}`);
+        }
+    }
+    async sendEmailChangeConfirmationOTP(to, otp) {
+        if (!this.resend) {
+            throw new Error('Email service is not configured. Set RESEND_API_KEY, EMAIL_FROM_ADDRESS in your .env file.');
+        }
+        const { error } = await this.resend.emails.send({
+            from: `${this.fromName} <${this.fromAddress}>`,
+            to,
+            subject: 'Confirm your new email address',
+            html: `
+        <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
+          <h2>Confirm email change</h2>
+          <p>You started changing the email on your account. Enter this code to confirm the new address:</p>
+          <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #333;">${otp}</p>
+          <p style="color: #666;">This code expires in 10 minutes. If you did not request this change, secure your account and contact support.</p>
+        </div>
+      `
+        });
+        if (error) {
+            throw new Error(`Failed to send email: ${error.message}`);
+        }
+    }
+}
+exports.EmailService = EmailService;
+function createEmailService(config) {
+    return new EmailService(config);
+}
+//# sourceMappingURL=EmailService.js.map

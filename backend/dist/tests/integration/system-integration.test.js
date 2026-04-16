@@ -1,0 +1,300 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const supertest_1 = __importDefault(require("supertest"));
+const container_1 = __importDefault(require("../../src/container"));
+const index_1 = require("../../src/index");
+const verifiedAuth_1 = require("./helpers/verifiedAuth");
+const safePrismaCleanup_1 = require("./helpers/safePrismaCleanup");
+describe('System Integration Tests', () => {
+    let app;
+    let services;
+    let prisma;
+    let testUserId;
+    let authToken;
+    beforeAll(async () => {
+        services = await container_1.default.initialize();
+        prisma = services.prisma;
+        app = await (0, index_1.createApp)();
+        await cleanupTestData();
+    });
+    afterAll(async () => {
+        await cleanupTestData();
+        await container_1.default.cleanup();
+    });
+    async function cleanupTestData() {
+        try {
+            await prisma.audioSession.deleteMany({
+                where: {
+                    user: {
+                        email: {
+                            contains: 'system-integration-test'
+                        }
+                    }
+                }
+            });
+            await prisma.usageTracking.deleteMany({
+                where: {
+                    user: {
+                        email: {
+                            contains: 'system-integration-test'
+                        }
+                    }
+                }
+            });
+            await prisma.userProfile.deleteMany({
+                where: {
+                    user: {
+                        email: {
+                            contains: 'system-integration-test'
+                        }
+                    }
+                }
+            });
+            await (0, safePrismaCleanup_1.safeEmailVerificationOTPDeleteMany)(prisma, {
+                email: { contains: 'system-integration-test' }
+            });
+            await prisma.user.deleteMany({
+                where: {
+                    email: {
+                        contains: 'system-integration-test'
+                    }
+                }
+            });
+        }
+        catch (error) {
+        }
+    }
+    describe('1. Service Container Integration', () => {
+        it('should have all services properly wired', () => {
+            expect(services.prisma).toBeDefined();
+            expect(services.authService).toBeDefined();
+            expect(services.profileService).toBeDefined();
+            expect(services.audioSessionService).toBeDefined();
+            expect(services.subscriptionService).toBeDefined();
+            expect(services.dashboardService).toBeDefined();
+            expect(services.openaiService).toBeDefined();
+            expect(services.s3Service).toBeDefined();
+            expect(services.monitoringService).toBeDefined();
+            expect(services.errorHandlingService).toBeDefined();
+        });
+        it('should have database connection established', async () => {
+            const result = await prisma.$queryRaw `SELECT 1 as test`;
+            expect(result).toBeDefined();
+        });
+    });
+    describe('2. Complete Request/Response Flow', () => {
+        it('should handle user registration with proper validation', async () => {
+            const invalidEmailResponse = await (0, supertest_1.default)(app)
+                .post('/api/auth/register')
+                .send({
+                email: 'invalid-email',
+                password: 'ValidPassword123!'
+            });
+            expect(invalidEmailResponse.status).toBe(400);
+            expect(invalidEmailResponse.body.error.code).toBe('VALIDATION_ERROR');
+            const weakPasswordResponse = await (0, supertest_1.default)(app)
+                .post('/api/auth/register')
+                .send({
+                email: 'system-integration-test@example.com',
+                password: 'weak'
+            });
+            expect(weakPasswordResponse.status).toBe(400);
+            const validResponse = await (0, supertest_1.default)(app)
+                .post('/api/auth/register')
+                .send({
+                email: 'system-integration-test@example.com',
+                password: 'ValidPassword123!'
+            });
+            expect(validResponse.status).toBe(201);
+            expect(validResponse.body.success).toBe(true);
+            expect(validResponse.body.data.user).toBeDefined();
+            expect(validResponse.body.data.token).toBeUndefined();
+            const session = await (0, verifiedAuth_1.verifyUserEmailInDbAndLogin)(app, 'system-integration-test@example.com', 'ValidPassword123!');
+            testUserId = session.userId;
+            authToken = session.token;
+        });
+        it('should enforce authentication on protected endpoints', async () => {
+            const noTokenResponse = await (0, supertest_1.default)(app)
+                .get('/api/profile');
+            expect(noTokenResponse.status).toBe(401);
+            const invalidTokenResponse = await (0, supertest_1.default)(app)
+                .get('/api/profile')
+                .set('Authorization', 'Bearer invalid-token');
+            expect(invalidTokenResponse.status).toBe(401);
+            const validTokenResponse = await (0, supertest_1.default)(app)
+                .get('/api/profile')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(validTokenResponse.status).toBe(200);
+        });
+        it('should handle profile management with validation', async () => {
+            const invalidUpdateResponse = await (0, supertest_1.default)(app)
+                .put('/api/profile')
+                .set('Authorization', `Bearer ${authToken}`)
+                .send({
+                targetIndustry: '',
+                targetJobTitle: ''
+            });
+            expect(invalidUpdateResponse.status).toBe(400);
+            const validUpdateResponse = await (0, supertest_1.default)(app)
+                .put('/api/profile')
+                .set('Authorization', `Bearer ${authToken}`)
+                .send({
+                targetIndustry: 'Technology',
+                targetJobTitle: 'Software Engineer'
+            });
+            expect(validUpdateResponse.status).toBe(200);
+            expect(validUpdateResponse.body.data.targetIndustry).toBe('Technology');
+            expect(validUpdateResponse.body.data.targetJobTitle).toBe('Software Engineer');
+        });
+        it('should handle session management with subscription limits', async () => {
+            const sessionIds = [];
+            for (let i = 0; i < 3; i++) {
+                const sessionResponse = await (0, supertest_1.default)(app)
+                    .post('/api/sessions/start')
+                    .set('Authorization', `Bearer ${authToken}`);
+                expect(sessionResponse.status).toBe(201);
+                sessionIds.push(sessionResponse.body.data.sessionId);
+            }
+            const fourthSessionResponse = await (0, supertest_1.default)(app)
+                .post('/api/sessions/start')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(fourthSessionResponse.status).toBe(201);
+            const sessionResponse = await (0, supertest_1.default)(app)
+                .get(`/api/sessions/${sessionIds[0]}`)
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(sessionResponse.status).toBe(200);
+            expect(sessionResponse.body.data.id).toBe(sessionIds[0]);
+        });
+        it('should handle subscription management', async () => {
+            const infoResponse = await (0, supertest_1.default)(app)
+                .get('/api/subscription/info')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(infoResponse.status).toBe(200);
+            expect(infoResponse.body.data.tier).toBe('free');
+            expect(infoResponse.body.data.currentUsage).toBe(0);
+            expect(infoResponse.body.data.canCreateSession).toBe(true);
+            const upgradeResponse = await (0, supertest_1.default)(app)
+                .post('/api/subscription/upgrade')
+                .set('Authorization', `Bearer ${authToken}`)
+                .send({
+                tier: 'PAID'
+            });
+            expect(upgradeResponse.status).toBe(200);
+            const updatedInfoResponse = await (0, supertest_1.default)(app)
+                .get('/api/subscription/info')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(updatedInfoResponse.status).toBe(200);
+            expect(updatedInfoResponse.body.data.tier).toBe('paid');
+            expect(updatedInfoResponse.body.data.canCreateSession).toBe(true);
+        });
+        it('should handle dashboard analytics', async () => {
+            const statsResponse = await (0, supertest_1.default)(app)
+                .get('/api/dashboard/stats')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(statsResponse.status).toBe(200);
+            expect(statsResponse.body.confidenceScore).toBeDefined();
+            expect(statsResponse.body.totalSessions).toBeGreaterThanOrEqual(4);
+            const insightsResponse = await (0, supertest_1.default)(app)
+                .get('/api/dashboard/insights')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(insightsResponse.status).toBe(200);
+            expect(Array.isArray(insightsResponse.body.data)).toBe(true);
+            const trendsResponse = await (0, supertest_1.default)(app)
+                .get('/api/dashboard/trends')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(trendsResponse.status).toBe(200);
+            expect(Array.isArray(trendsResponse.body.data)).toBe(true);
+        });
+    });
+    describe('3. Error Handling Integration', () => {
+        it('should handle validation errors consistently', async () => {
+            const response = await (0, supertest_1.default)(app)
+                .post('/api/auth/register')
+                .send({
+                email: 'invalid',
+                password: 'weak'
+            });
+            expect(response.status).toBe(400);
+            expect(response.body.error).toBeDefined();
+            expect(response.body.error.code).toBe('VALIDATION_ERROR');
+            expect(response.body.timestamp).toBeDefined();
+            expect(response.body.path).toBeDefined();
+        });
+        it('should handle not found errors', async () => {
+            const response = await (0, supertest_1.default)(app)
+                .get('/api/sessions/00000000-0000-0000-0000-000000000000')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(response.status).toBe(404);
+            expect(response.body.error.code).toBe('SESSION_NOT_FOUND');
+        });
+        it('should handle unauthorized access', async () => {
+            const response = await (0, supertest_1.default)(app)
+                .get('/api/profile');
+            expect(response.status).toBe(401);
+            expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
+        });
+    });
+    describe('4. Security Integration', () => {
+        it('should enforce data isolation', async () => {
+            await (0, supertest_1.default)(app)
+                .post('/api/auth/register')
+                .send({
+                email: 'system-integration-test-2@example.com',
+                password: 'ValidPassword123!'
+            })
+                .expect(201);
+            const user2Session = await (0, verifiedAuth_1.verifyUserEmailInDbAndLogin)(app, 'system-integration-test-2@example.com', 'ValidPassword123!');
+            const user2Token = user2Session.token;
+            const sessionResponse = await (0, supertest_1.default)(app)
+                .get('/api/sessions/history')
+                .set('Authorization', `Bearer ${user2Token}`);
+            expect(sessionResponse.status).toBe(200);
+            expect(sessionResponse.body.data.sessions.length).toBe(0);
+        });
+        it('should sanitize input data', async () => {
+            const response = await (0, supertest_1.default)(app)
+                .put('/api/profile')
+                .set('Authorization', `Bearer ${authToken}`)
+                .send({
+                targetIndustry: '<script>alert("xss")</script>Technology',
+                targetJobTitle: 'Software Engineer'
+            });
+            expect(response.status).toBe(200);
+            expect(response.body.data.targetIndustry).not.toContain('<script>');
+        });
+    });
+    describe('5. Performance and Monitoring', () => {
+        it('should include performance headers', async () => {
+            const response = await (0, supertest_1.default)(app)
+                .get('/api/auth/me')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(response.status).toBe(200);
+            if (process.env.ENABLE_PERFORMANCE_MONITORING === 'true') {
+                expect(response.headers['x-response-time']).toBeDefined();
+            }
+        });
+        it('should handle health checks', async () => {
+            const response = await (0, supertest_1.default)(app)
+                .get('/api/health');
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.message).toBe('API is healthy');
+        });
+    });
+    describe('6. Logout and Cleanup', () => {
+        it('should handle logout properly', async () => {
+            const logoutResponse = await (0, supertest_1.default)(app)
+                .post('/api/auth/logout')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(logoutResponse.status).toBe(200);
+            const meResponse = await (0, supertest_1.default)(app)
+                .get('/api/auth/me')
+                .set('Authorization', `Bearer ${authToken}`);
+            expect(meResponse.status).toBe(200);
+        });
+    });
+});
+//# sourceMappingURL=system-integration.test.js.map

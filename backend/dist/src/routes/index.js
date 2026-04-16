@@ -1,0 +1,105 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createApiRoutes = createApiRoutes;
+const express_1 = require("express");
+const auth_1 = require("./auth");
+const profile_1 = require("./profile");
+const onboarding_1 = require("./onboarding");
+const sessions_1 = require("./sessions");
+const subscription_1 = require("./subscription");
+const dashboard_1 = require("./dashboard");
+const admin_1 = require("./admin");
+const config_1 = require("../utils/config");
+function createApiRoutes(services) {
+    const router = (0, express_1.Router)();
+    router.use('/auth', (0, auth_1.createAuthRoutes)(services));
+    router.use('/profile', (0, profile_1.createProfileRoutes)(services));
+    router.use('/onboarding', (0, onboarding_1.createOnboardingRoutes)(services));
+    router.use('/sessions', (0, sessions_1.createSessionRoutes)(services));
+    router.use('/subscription', (0, subscription_1.createSubscriptionRoutes)(services));
+    router.use('/dashboard', (0, dashboard_1.createDashboardRoutes)(services));
+    if (config_1.config.ENABLE_ADMIN_ENDPOINTS) {
+        router.use('/admin', (0, admin_1.createAdminRoutes)(services));
+    }
+    router.get('/health', (req, res) => {
+        res.status(200).json({
+            success: true,
+            message: 'API is healthy',
+            timestamp: new Date().toISOString(),
+            version: '1.0.0'
+        });
+    });
+    router.get('/', (req, res) => {
+        res.status(200).json({
+            success: true,
+            message: 'AI Audio Summarization Backend API',
+            version: '1.0.0',
+            endpoints: {
+                auth: {
+                    'POST /api/auth/register': 'Register a new user',
+                    'POST /api/auth/login': 'Login user',
+                    'POST /api/auth/google': 'Continue with Google (ID token)',
+                    'POST /api/auth/logout': 'Logout user',
+                    'GET /api/auth/me': 'Get current user info',
+                    'POST /api/auth/refresh': 'Refresh JWT token',
+                    'GET /api/auth/validate': 'Validate JWT token',
+                    'POST /api/auth/forgot-password': 'Request password reset OTP',
+                    'POST /api/auth/verify-otp': 'Verify OTP, get reset token',
+                    'POST /api/auth/reset-password': 'Reset password with reset token',
+                    'POST /api/auth/change-password': 'Change password (authenticated)',
+                    'POST /api/auth/change-email/request': 'Start email change (password + new email, OTP to new address)',
+                    'POST /api/auth/change-email/confirm': 'Confirm email change with OTP (returns new JWT)',
+                    'POST /api/auth/change-email/resend': 'Resend email change OTP',
+                    'POST /api/auth/verify-email': 'Verify signup OTP, get session JWT',
+                    'POST /api/auth/resend-verification': 'Resend signup verification email'
+                },
+                onboarding: {
+                    'POST /api/onboarding/primary': 'Onboarding step 1: resume or manual profile',
+                    'POST /api/onboarding/voice': 'Optional: audio intro, merge into profile',
+                    'POST /api/onboarding/primary/voice': 'Same as /onboarding/voice',
+                    'POST /api/onboarding/complete': 'Finish onboarding, set personalization context'
+                },
+                profile: {
+                    'GET /api/profile': 'Get user profile',
+                    'PUT /api/profile': 'Update user profile',
+                    'POST /api/profile/resume': 'Upload resume file',
+                    'GET /api/profile/resume/url': 'Get secure resume file URL',
+                    'PUT /api/profile/target-role': 'Set target role',
+                    'DELETE /api/profile': 'Delete user profile',
+                    'GET /api/profile/ai-attributes': 'Get AI attributes'
+                },
+                sessions: {
+                    'POST /api/sessions/start': 'Start a new audio session',
+                    'POST /api/sessions/:id/audio': 'Upload audio to session',
+                    'PATCH /api/sessions/:id/transcript': 'Update transcript and resubmit for insights',
+                    'PATCH /api/sessions/:id': 'Update session display name (event label)',
+                    'GET /api/sessions/:id': 'Get session details',
+                    'GET /api/sessions/history': 'Get session history'
+                },
+                subscription: {
+                    'GET /api/subscription/info': 'Get subscription and usage information',
+                    'POST /api/subscription/upgrade': 'Upgrade subscription tier'
+                },
+                dashboard: {
+                    'GET /api/dashboard/stats': 'Get comprehensive dashboard statistics',
+                    'GET /api/dashboard/insights': 'Get recent insights based on session patterns',
+                    'GET /api/dashboard/trends': 'Get performance trends over time'
+                },
+                ...(config_1.config.ENABLE_ADMIN_ENDPOINTS && {
+                    admin: {
+                        'GET /api/admin/health': 'Comprehensive system health check (admin only)',
+                        'GET /api/admin/metrics': 'System metrics and performance data (admin only)',
+                        'POST /api/admin/reset-usage': 'Reset monthly usage for all users (admin only)',
+                        'GET /api/admin/users': 'Get user statistics and management data (admin only)',
+                        'GET /api/admin/system-config': 'Get system configuration (admin only)'
+                    }
+                })
+            },
+            documentation: 'See design document for detailed API specifications'
+        });
+    });
+    return router;
+}
+const router = (0, express_1.Router)();
+exports.default = router;
+//# sourceMappingURL=index.js.map
