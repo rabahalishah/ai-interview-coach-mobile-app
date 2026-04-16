@@ -32,6 +32,10 @@ The project is split into two parts:
 - **Backend API** — Node.js/TypeScript server handling auth, profiles, session storage, AI analysis, and file management
 
 ---
+## 🎬 Demo
+
+📹 [Watch the demo video](https://your-video-link-here)
+---
 
 ## Features
 
@@ -42,6 +46,15 @@ The project is split into two parts:
 - 📊 **Skill Breakdown** — Radar chart visualization across Clarity, Confidence, Tone, Enthusiasm, and Specificity
 - 📝 **Session History** — Full session list with score badges and detailed view with transcript bubbles
 - 👤 **Profile & Resume Intake** — Resume upload UI (PDF/Word) and target role selection (industry + job title)
+
+## 📸 Screenshots
+<img width="360" height="800" alt="Image" src="https://github.com/user-attachments/assets/65c43922-4fd8-4caa-bbf6-04726d2fad37" />
+<img width="360" height="800" alt="Image" src="https://github.com/user-attachments/assets/3cf02bb2-e944-41ca-92a9-4124302b563d" />
+<img width="360" height="800" alt="Image" src="https://github.com/user-attachments/assets/6798c054-157b-4103-a381-56ea9b0e638d" />
+<img width="360" height="800" alt="Image" src="https://github.com/user-attachments/assets/5963ff8e-b99e-47e3-8a7c-67184ed5b68a" />
+<img width="360" height="800" alt="Image" src="https://github.com/user-attachments/assets/b758dc94-9766-4985-aa87-0f64abf21aa9" />
+<img width="360" height="800" alt="Image" src="https://github.com/user-attachments/assets/be1d7dc5-abc4-4e21-9a31-80cd70e413aa" />
+<img width="360" height="800" alt="Image" src="https://github.com/user-attachments/assets/9405ef02-9bdd-4a4e-b25d-fa24525c9ac8" />
 
 ### Backend API
 - 🔐 **Auth & Identity** — Email/password with JWTs, optional Google OAuth, OTP-based password reset
