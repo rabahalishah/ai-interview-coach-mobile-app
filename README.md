@@ -34,7 +34,7 @@ The project is split into two parts:
 ---
 ## 🎬 Demo
 
-📹 [Watch the demo video](https://your-video-link-here)
+📹 [Watch the demo video](https://youtu.be/aVHCxvGy3M4)
 ---
 
 ## Features
