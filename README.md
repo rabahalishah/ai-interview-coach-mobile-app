@@ -1,4 +1,4 @@
-# 🎙️ AI Interview Coach
+# 🎙️ AI Interview Coach (Public Version)
 
 > **MLH Hackathon — API Week**
 > An AI-powered mobile app that helps you ace your next interview through real-time recording, transcription, and personalized coaching feedback.
