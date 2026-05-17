@@ -1,6 +1,5 @@
 # 🎙️ AI Interview Coach (Public Version)
 
-> **MLH Hackathon — API Week**
 > An AI-powered mobile app that helps you ace your next interview through real-time recording, transcription, and personalized coaching feedback.
 
 ---
@@ -25,7 +24,7 @@
 
 ## Overview
 
-AI Interview Coach is a full-stack mobile application built for MLH API Week. Users can record mock interviews on their phone, get their speech transcribed via OpenAI Whisper, and receive structured AI coaching feedback — all tracked across sessions with detailed skill breakdowns and history.
+AI Interview Coach is a full-stack mobile application built for a client. Users can record mock interviews on their phone, get their speech transcribed via OpenAI Whisper, and receive structured AI coaching feedback — all tracked across sessions with detailed skill breakdowns and history.
 
 The project is split into two parts:
 - **Mobile App** — React Native (Expo) frontend handling recording, UI, and session display
